@@ -1,0 +1,14 @@
+Flask
+pandas
+pyodbc
+openpyxl
+Pillow
+# easyocr
+# numpy
+langchain
+langchain-openai
+python-dotenv
+xlrd
+flask-socketio
+fuzzywuzzy
+gunicorn

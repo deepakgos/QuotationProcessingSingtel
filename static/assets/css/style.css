@@ -1,0 +1,34 @@
+body{
+    background: linear-gradient(to right, #e8e8e8, #f4f4f4);
+}
+.file-drop-area {
+    border: 2px dashed #cecece;
+  border-radius: 4px;
+  padding: 70px;
+  text-align: center;
+  cursor: pointer;
+  color: #989898;
+}
+.file-drop-area.dragover {
+    background-color: #e9ecef;
+    border-color: #0056b3;
+}
+.file-input {
+    display: none;
+}
+.file-drop-message {
+    margin: 0;
+    font-size: 16px;
+}
+.error-message {
+    color: red;
+    font-size: 14px;
+}
+.whiteBox{
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.rwht1{
+    height: calc(100vh - 100px);;
+}

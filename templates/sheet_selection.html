@@ -1,0 +1,192 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Sheet Selection{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <div class="row g-3 justify-content-center align-items-center" style="min-height: 75vh;">
+            <div class="col-md-6">
+                <div>
+                    <div class="">
+                        <h1 class="text-center mb-3 fw-light fs-2">Select Sheets to Process</h1>
+                        <div class="mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="flexCheckDefault" onclick="toggleSelectAll()">
+                                <label class="form-check-label" for="flexCheckDefault">
+                                    Select All
+                                </label>
+                            </div>
+                        </div>
+                        <form id="sheetForm" action="/process" method="POST">
+                            <div class="mb-4 whiteBox">
+                                <div class="structure-box">
+                                    <div class="accordion accordion-flush" id="accordionFlushExample">
+                                        {% for file, sheets in file_sheets.items() %}
+                                            <div class="accordion-item mb-1">
+                                                <h2 class="accordion-header">
+                                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                        data-bs-target="#flush-collapse{{ loop.index }}" aria-expanded="false" aria-controls="flush-collapse{{ loop.index }}">
+                                                        {{ file }}
+                                                    </button>
+                                                </h2>
+                                                <div id="flush-collapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#accordionFlushExample">
+                                                    <div class="accordion-body">
+                                                        <div id="sheets_{{ file }}" class="sheet-list">
+                                                            {% for sheet in sheets %}
+                                                            <div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" name="{{ file }}[]" value="{{ sheet }}" id="sheet_{{ file }}_{{ sheet }}">
+                                                                    <label class="form-check-label" for="sheet_{{ file }}_{{ sheet }}">
+                                                                        {{ sheet }}
+                                                                    </label>
+                                                                  </div>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-info" onclick="submitForm(event)">Process Sheets</button>
+                            </div>
+                        </form>
+                    
+                        <div id="progress" class="mt-4 ps-4"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6" style="display: none;">
+                <div>
+                    sdkfls
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function showSheets(selectedFile) {
+        const allSheetLists = document.querySelectorAll('.sheet-list');
+        allSheetLists.forEach(sheetList => {
+            sheetList.style.display = 'none';
+        });
+        const selectedSheetList = document.getElementById(`sheets_${selectedFile}`);
+        if (selectedSheetList) {
+            selectedSheetList.style.display = 'block';
+        }
+    }
+
+    function toggleSelectAll() {
+    const flexCheckDefault = document.getElementById('flexCheckDefault');
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][name$="[]"]'); // Target checkboxes that end with []
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = flexCheckDefault.checked;
+    });
+    }
+
+    function submitForm(event) {
+        event.preventDefault();
+        const formData = new FormData(document.getElementById('sheetForm'));
+        const progressDiv = document.getElementById('progress');
+        const currentProcessingDiv = document.createElement('div');
+        const processedFilesDiv = document.createElement('div');
+        
+        progressDiv.innerHTML = `
+        <p id="progress-message">Processing Start...</p>
+        `;
+        progressDiv.appendChild(currentProcessingDiv);  // For currently processing file
+        progressDiv.appendChild(processedFilesDiv);    // For processed files
+
+        fetch('/process', {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            function read() {
+                return reader.read().then(({ done, value }) => {
+                    if (done) {
+                        document.getElementById('progress-message').textContent = 'Processing Finished...!';
+                        
+                        const lastBatchFile = data.file.startsWith('consolidated_batch_') ? data.file : 'consolidated_data.xlsx';
+                        progressDiv.innerHTML += `
+                            <div class="mt-4">
+                                <a href="/uploads/${lastBatchFile}.xlsx" class="btn btn-success">Download Consolidated Data</a>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    let separatorIndex;
+                    while ((separatorIndex = buffer.indexOf('\n\n')) >= 0) {
+                        const chunk = buffer.slice(0, separatorIndex);
+                        buffer = buffer.slice(separatorIndex + 2);
+
+                        if (chunk.trim()) {
+                            try {
+                                const data = JSON.parse(chunk);
+                                if (data.status === 'processing') {
+                                    currentProcessingDiv.innerHTML = `
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="ps-3 mb-0">Processing ${data.file} - Sheet: ${data.sheet}</p>
+                                        </div>
+                                    `;
+                                } else if (data.status === 'done') {
+                                    if (data.file.startsWith('consolidated_batch_')) {
+                                        processedFilesDiv.innerHTML += `
+                                            <div class="d-flex align-items-center mb-2">
+                                                <img src="static/assets/img/checkmark.png" alt="Processed" class="me-2">
+                                                <p class="ps-3 mb-0">Processed ${data.file}</p>
+                                            </div>
+                                        `;
+                                    } else {
+                                        processedFilesDiv.innerHTML += `
+                                            <div class="d-flex align-items-center mb-2">
+                                                <img src="static/assets/img/checkmark.png" alt="Processed" class="me-2">
+                                                <p class="ps-3 mb-0">Processed ${data.file} - Sheet: ${data.sheet}</p>
+                                            </div>
+                                        `;
+                                    }
+                                    currentProcessingDiv.innerHTML = '';  // Clear the "currently processing" div
+                                } else if (data.status === 'error' && data.error.includes('sheet is empty')) {
+                                    processedFilesDiv.innerHTML += `
+                                        <div class="d-flex align-items-center mb-2">
+                                            <img src="static/assets/img/checkmark.png" alt="Processed" class="me-2">
+                                            <p class="ps-3 mb-0">${data.file} - Sheet: ${data.sheet}: ${data.error}</p>
+                                        </div>
+                                    `;
+                                    currentProcessingDiv.innerHTML = '';  // Clear the "currently processing" div
+                                } else if (data.status === 'error') {
+                                    processedFilesDiv.innerHTML += `<p>Error processing ${data.file} - Sheet: ${data.sheet}: ${data.error}</p>`;
+                                    currentProcessingDiv.innerHTML = '';  // Clear the "currently processing" div
+                                }
+                            } catch (error) {
+                                console.error('Error parsing JSON:', error);
+                            }
+                        }
+                    }
+
+                    return read();
+                });
+            }
+
+            read();
+        }).catch(error => {
+            progressDiv.innerHTML += `<p>Error: ${error.message}</p>`;
+        });
+    }
+</script>
+{% endblock %}
